@@ -1,36 +1,96 @@
-package keeper_test
+package module_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
-	"go.uber.org/mock/gomock"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	cmttime "github.com/cometbft/cometbft/types/time"
+	"github.com/stretchr/testify/suite"
 
-	"cosmossdk.io/core/header"
-	"cosmossdk.io/x/bank/testutil"
-	banktypes "cosmossdk.io/x/bank/types"
-	"cosmossdk.io/x/group"
+	"cosmossdk.io/core/address"
+	"cosmossdk.io/depinject"
+	"cosmossdk.io/log"
+	"cosmossdk.io/math"
 
+	codecaddress "github.com/cosmos/cosmos-sdk/codec/address"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	"github.com/cosmos/cosmos-sdk/x/bank/testutil"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/cosmos-sdk/x/group"
+	"github.com/cosmos/cosmos-sdk/x/group/keeper"
+	"github.com/cosmos/cosmos-sdk/x/group/module"
+	grouptestutil "github.com/cosmos/cosmos-sdk/x/group/testutil"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
-func (s *TestSuite) TestEndBlockerPruning() {
-	ctx := s.sdkCtx
-	s.bankKeeper.EXPECT().Send(gomock.Any(), gomock.Any()).Return(&banktypes.MsgSendResponse{}, nil).AnyTimes()
+type IntegrationTestSuite struct {
+	suite.Suite
+
+	ctx               sdk.Context
+	addrs             []sdk.AccAddress
+	groupKeeper       keeper.Keeper
+	bankKeeper        bankkeeper.Keeper
+	stakingKeeper     *stakingkeeper.Keeper
+	interfaceRegistry codectypes.InterfaceRegistry
+
+	addressCodec address.Codec
+}
+
+func TestIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(IntegrationTestSuite))
+}
+
+func (s *IntegrationTestSuite) SetupTest() {
+	app, err := simtestutil.Setup(
+		depinject.Configs(
+			grouptestutil.AppConfig,
+			depinject.Supply(log.NewNopLogger()),
+		),
+		&s.interfaceRegistry,
+		&s.bankKeeper,
+		&s.stakingKeeper,
+		&s.groupKeeper,
+	)
+	s.Require().NoError(err)
+
+	ctx := app.NewContext(false)
+
+	ctx = ctx.WithBlockHeader(cmtproto.Header{Time: cmttime.Now()})
+
+	s.ctx = ctx
+
+	s.addrs = simtestutil.AddTestAddrsIncremental(s.bankKeeper, s.stakingKeeper, ctx, 4, math.NewInt(30000000))
+
+	s.addressCodec = codecaddress.NewBech32Codec("cosmos")
+}
+
+func (s *IntegrationTestSuite) TestEndBlockerPruning() {
+	ctx := s.ctx
+	addr1 := s.addrs[0]
+	addr2 := s.addrs[1]
+	addr3 := s.addrs[2]
+
+	addr1st, err := s.addressCodec.BytesToString(addr1)
+	s.Require().NoError(err)
 
 	// Initial group, group policy and balance setup
 	members := []group.MemberRequest{
-		{Address: s.addrsStr[0], Weight: "1"}, {Address: s.addrsStr[1], Weight: "2"},
+		{Address: addr1st, Weight: "1"}, {Address: addr2.String(), Weight: "2"},
 	}
 
 	groupRes, err := s.groupKeeper.CreateGroup(ctx, &group.MsgCreateGroup{
-		Admin:   s.addrsStr[0],
+		Admin:   addr1st,
 		Members: members,
 	})
 	s.Require().NoError(err)
 
 	groupRes2, err := s.groupKeeper.CreateGroup(ctx, &group.MsgCreateGroup{
-		Admin:   s.addrsStr[1],
+		Admin:   addr2.String(),
 		Members: members,
 	})
 	s.Require().NoError(err)
@@ -45,15 +105,12 @@ func (s *TestSuite) TestEndBlockerPruning() {
 	)
 
 	policyReq := &group.MsgCreateGroupPolicy{
-		Admin:   s.addrsStr[0],
+		Admin:   addr1.String(),
 		GroupId: groupID,
 	}
 
 	err = policyReq.SetDecisionPolicy(policy)
 	s.Require().NoError(err)
-
-	s.setNextAccount()
-
 	policyRes, err := s.groupKeeper.CreateGroupPolicy(ctx, policyReq)
 	s.Require().NoError(err)
 
@@ -64,15 +121,12 @@ func (s *TestSuite) TestEndBlockerPruning() {
 	)
 
 	policyReq2 := &group.MsgCreateGroupPolicy{
-		Admin:   s.addrsStr[1],
+		Admin:   addr2.String(),
 		GroupId: groupID2,
 	}
 
 	err = policyReq2.SetDecisionPolicy(policy2)
 	s.Require().NoError(err)
-
-	s.setNextAccount()
-
 	policyRes2, err := s.groupKeeper.CreateGroupPolicy(ctx, policyReq2)
 	s.Require().NoError(err)
 
@@ -88,15 +142,15 @@ func (s *TestSuite) TestEndBlockerPruning() {
 
 	msgSend1 := &banktypes.MsgSend{
 		FromAddress: policyRes.Address,
-		ToAddress:   s.addrsStr[1],
+		ToAddress:   addr2.String(),
 		Amount:      sdk.Coins{sdk.NewInt64Coin("test", 100)},
 	}
 	msgSend2 := &banktypes.MsgSend{
 		FromAddress: policyRes2.Address,
-		ToAddress:   s.addrsStr[1],
+		ToAddress:   addr2.String(),
 		Amount:      sdk.Coins{sdk.NewInt64Coin("test", 100)},
 	}
-	proposers := []string{s.addrsStr[1]}
+	proposers := []string{addr2.String()}
 
 	specs := map[string]struct {
 		setupProposal     func(ctx sdk.Context) uint64
@@ -109,11 +163,12 @@ func (s *TestSuite) TestEndBlockerPruning() {
 		"proposal pruned after executor result success": {
 			setupProposal: func(ctx sdk.Context) uint64 {
 				msgs := []sdk.Msg{msgSend1}
-				pID, err := submitProposalAndVoteHelper(s, ctx, msgs, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
+				pID, err := submitProposalAndVote(s, ctx, msgs, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
 				s.Require().NoError(err)
-				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: s.addrsStr[2], ProposalId: pID})
+				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: addr3.String(), ProposalId: pID})
 				s.Require().NoError(err)
-				s.Require().NoError(testutil.FundAccount(ctx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
+				sdkCtx := sdk.UnwrapSDKContext(ctx)
+				s.Require().NoError(testutil.FundAccount(sdkCtx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
 
 				return pID
 			},
@@ -124,11 +179,12 @@ func (s *TestSuite) TestEndBlockerPruning() {
 		"proposal with multiple messages pruned when executed with result success": {
 			setupProposal: func(ctx sdk.Context) uint64 {
 				msgs := []sdk.Msg{msgSend1, msgSend1}
-				pID, err := submitProposalAndVoteHelper(s, ctx, msgs, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
+				pID, err := submitProposalAndVote(s, ctx, msgs, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
 				s.Require().NoError(err)
-				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: s.addrsStr[2], ProposalId: pID})
+				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: addr3.String(), ProposalId: pID})
 				s.Require().NoError(err)
-				s.Require().NoError(testutil.FundAccount(ctx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
+				sdkCtx := sdk.UnwrapSDKContext(ctx)
+				s.Require().NoError(testutil.FundAccount(sdkCtx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
 
 				return pID
 			},
@@ -139,12 +195,12 @@ func (s *TestSuite) TestEndBlockerPruning() {
 		"proposal not pruned when not executed and rejected": {
 			setupProposal: func(ctx sdk.Context) uint64 {
 				msgs := []sdk.Msg{msgSend1}
-				pID, err := submitProposalAndVoteHelper(s, ctx, msgs, proposers, groupPolicyAddr, group.VOTE_OPTION_NO)
+				pID, err := submitProposalAndVote(s, ctx, msgs, proposers, groupPolicyAddr, group.VOTE_OPTION_NO)
 				s.Require().NoError(err)
-				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: s.addrsStr[2], ProposalId: pID})
+				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: addr3.String(), ProposalId: pID})
 				s.Require().NoError(err)
-
-				s.Require().NoError(testutil.FundAccount(ctx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
+				sdkCtx := sdk.UnwrapSDKContext(ctx)
+				s.Require().NoError(testutil.FundAccount(sdkCtx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
 
 				return pID
 			},
@@ -154,11 +210,12 @@ func (s *TestSuite) TestEndBlockerPruning() {
 		},
 		"open proposal is not pruned which must not fail ": {
 			setupProposal: func(ctx sdk.Context) uint64 {
-				pID, err := submitProposalHelper(s, ctx, []sdk.Msg{msgSend1}, proposers, groupPolicyAddr)
+				pID, err := submitProposal(s, ctx, []sdk.Msg{msgSend1}, proposers, groupPolicyAddr)
 				s.Require().NoError(err)
-				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: s.addrsStr[2], ProposalId: pID})
+				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: addr3.String(), ProposalId: pID})
 				s.Require().NoError(err)
-				s.Require().NoError(testutil.FundAccount(ctx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
+				sdkCtx := sdk.UnwrapSDKContext(ctx)
+				s.Require().NoError(testutil.FundAccount(sdkCtx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
 
 				return pID
 			},
@@ -168,16 +225,17 @@ func (s *TestSuite) TestEndBlockerPruning() {
 		},
 		"proposal not pruned with group policy modified before tally": {
 			setupProposal: func(ctx sdk.Context) uint64 {
-				pID, err := submitProposalHelper(s, ctx, []sdk.Msg{msgSend1}, proposers, groupPolicyAddr)
+				pID, err := submitProposal(s, ctx, []sdk.Msg{msgSend1}, proposers, groupPolicyAddr)
 				s.Require().NoError(err)
 				_, err = s.groupKeeper.UpdateGroupPolicyMetadata(ctx, &group.MsgUpdateGroupPolicyMetadata{
-					Admin:              s.addrsStr[0],
+					Admin:              addr1.String(),
 					GroupPolicyAddress: policyRes.Address,
 				})
 				s.Require().NoError(err)
-				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: s.addrsStr[2], ProposalId: pID})
+				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: addr3.String(), ProposalId: pID})
 				s.Require().Error(err) // since proposal with status Aborted cannot be executed
-				s.Require().NoError(testutil.FundAccount(ctx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
+				sdkCtx := sdk.UnwrapSDKContext(ctx)
+				s.Require().NoError(testutil.FundAccount(sdkCtx, s.bankKeeper, groupPolicyAddr, sdk.Coins{sdk.NewInt64Coin("test", 10002)}))
 
 				return pID
 			},
@@ -188,9 +246,9 @@ func (s *TestSuite) TestEndBlockerPruning() {
 		"pruned when proposal is executable when failed before": {
 			setupProposal: func(ctx sdk.Context) uint64 {
 				msgs := []sdk.Msg{msgSend1}
-				pID, err := submitProposalAndVoteHelper(s, ctx, msgs, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
+				pID, err := submitProposalAndVote(s, ctx, msgs, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
 				s.Require().NoError(err)
-				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: s.addrsStr[2], ProposalId: pID})
+				_, err = s.groupKeeper.Exec(ctx, &group.MsgExec{Executor: s.addrs[2].String(), ProposalId: pID})
 				s.Require().NoError(err)
 				return pID
 			},
@@ -200,7 +258,7 @@ func (s *TestSuite) TestEndBlockerPruning() {
 		},
 		"proposal with status withdrawn is pruned after voting period end": {
 			setupProposal: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalHelper(s, sdkCtx, []sdk.Msg{msgSend1}, proposers, groupPolicyAddr)
+				pID, err := submitProposal(s, sdkCtx, []sdk.Msg{msgSend1}, proposers, groupPolicyAddr)
 				s.Require().NoError(err)
 				_, err = s.groupKeeper.WithdrawProposal(ctx, &group.MsgWithdrawProposal{
 					ProposalId: pID,
@@ -209,13 +267,13 @@ func (s *TestSuite) TestEndBlockerPruning() {
 				s.Require().NoError(err)
 				return pID
 			},
-			newCtx:    ctx.WithHeaderInfo(header.Info{Time: ctx.HeaderInfo().Time.Add(votingPeriod).Add(time.Hour)}),
+			newCtx:    ctx.WithBlockTime(ctx.BlockTime().Add(votingPeriod).Add(time.Hour)),
 			expErrMsg: "load proposal: not found",
 			expStatus: group.PROPOSAL_STATUS_WITHDRAWN,
 		},
 		"proposal with status withdrawn is not pruned (before voting period)": {
 			setupProposal: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalHelper(s, sdkCtx, []sdk.Msg{msgSend1}, proposers, groupPolicyAddr)
+				pID, err := submitProposal(s, sdkCtx, []sdk.Msg{msgSend1}, proposers, groupPolicyAddr)
 				s.Require().NoError(err)
 				_, err = s.groupKeeper.WithdrawProposal(ctx, &group.MsgWithdrawProposal{
 					ProposalId: pID,
@@ -231,12 +289,12 @@ func (s *TestSuite) TestEndBlockerPruning() {
 		},
 		"proposal with status aborted is pruned after voting period end (due to updated group policy decision policy)": {
 			setupProposal: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalHelper(s, sdkCtx, []sdk.Msg{msgSend2}, proposers, groupPolicyAddr2)
+				pID, err := submitProposal(s, sdkCtx, []sdk.Msg{msgSend2}, proposers, groupPolicyAddr2)
 				s.Require().NoError(err)
 
 				policy := group.NewThresholdDecisionPolicy("3", time.Second, 0)
 				msg := &group.MsgUpdateGroupPolicyDecisionPolicy{
-					Admin:              s.addrsStr[1],
+					Admin:              s.addrs[1].String(),
 					GroupPolicyAddress: policyRes2.Address,
 				}
 				err = msg.SetDecisionPolicy(policy)
@@ -246,19 +304,19 @@ func (s *TestSuite) TestEndBlockerPruning() {
 
 				return pID
 			},
-			newCtx:            ctx.WithHeaderInfo(header.Info{Time: ctx.HeaderInfo().Time.Add(votingPeriod).Add(time.Hour)}),
+			newCtx:            ctx.WithBlockTime(ctx.BlockTime().Add(votingPeriod).Add(time.Hour)),
 			expErrMsg:         "load proposal: not found",
 			expStatus:         group.PROPOSAL_STATUS_ABORTED,
 			expExecutorResult: group.PROPOSAL_EXECUTOR_RESULT_NOT_RUN,
 		},
 		"proposal with status aborted is not pruned before voting period end (due to updated group policy)": {
 			setupProposal: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalHelper(s, sdkCtx, []sdk.Msg{msgSend2}, proposers, groupPolicyAddr2)
+				pID, err := submitProposal(s, sdkCtx, []sdk.Msg{msgSend2}, proposers, groupPolicyAddr2)
 				s.Require().NoError(err)
 
 				policy := group.NewThresholdDecisionPolicy("3", time.Second, 0)
 				msg := &group.MsgUpdateGroupPolicyDecisionPolicy{
-					Admin:              s.addrsStr[1],
+					Admin:              s.addrs[1].String(),
 					GroupPolicyAddress: policyRes2.Address,
 				}
 				err = msg.SetDecisionPolicy(policy)
@@ -278,8 +336,7 @@ func (s *TestSuite) TestEndBlockerPruning() {
 		s.Run(msg, func() {
 			proposalID := spec.setupProposal(ctx)
 
-			err := s.groupKeeper.EndBlocker(spec.newCtx)
-			s.Require().NoError(err)
+			s.Require().NoError(module.EndBlocker(spec.newCtx, s.groupKeeper))
 
 			if spec.expErrMsg != "" && spec.expExecutorResult != group.PROPOSAL_EXECUTOR_RESULT_SUCCESS {
 				_, err = s.groupKeeper.Proposal(spec.newCtx, &group.QueryProposalRequest{ProposalId: proposalID})
@@ -312,17 +369,18 @@ func (s *TestSuite) TestEndBlockerPruning() {
 	}
 }
 
-func (s *TestSuite) TestEndBlockerTallying() {
-	ctx := s.sdkCtx
-	s.bankKeeper.EXPECT().Send(gomock.Any(), gomock.Any()).Return(&banktypes.MsgSendResponse{}, nil).AnyTimes()
+func (s *IntegrationTestSuite) TestEndBlockerTallying() {
+	ctx := s.ctx
+
+	addrs := s.addrs
 
 	// Initial group, group policy and balance setup
 	members := []group.MemberRequest{
-		{Address: s.addrsStr[1], Weight: "1"}, {Address: s.addrsStr[2], Weight: "2"},
+		{Address: addrs[1].String(), Weight: "1"}, {Address: addrs[2].String(), Weight: "2"},
 	}
 
 	groupRes, err := s.groupKeeper.CreateGroup(ctx, &group.MsgCreateGroup{
-		Admin:   s.addrsStr[0],
+		Admin:   addrs[0].String(),
 		Members: members,
 	})
 	s.Require().NoError(err)
@@ -336,15 +394,12 @@ func (s *TestSuite) TestEndBlockerTallying() {
 	)
 
 	policyReq := &group.MsgCreateGroupPolicy{
-		Admin:   s.addrsStr[0],
+		Admin:   addrs[0].String(),
 		GroupId: groupID,
 	}
 
 	err = policyReq.SetDecisionPolicy(policy)
 	s.Require().NoError(err)
-
-	s.setNextAccount()
-
 	policyRes, err := s.groupKeeper.CreateGroupPolicy(ctx, policyReq)
 	s.Require().NoError(err)
 
@@ -355,11 +410,11 @@ func (s *TestSuite) TestEndBlockerTallying() {
 
 	msgSend := &banktypes.MsgSend{
 		FromAddress: policyRes.Address,
-		ToAddress:   s.addrsStr[3],
+		ToAddress:   addrs[3].String(),
 		Amount:      sdk.Coins{sdk.NewInt64Coin("test", 100)},
 	}
 
-	proposers := []string{s.addrsStr[2]}
+	proposers := []string{addrs[2].String()}
 
 	specs := map[string]struct {
 		preRun    func(sdkCtx sdk.Context) uint64
@@ -371,18 +426,18 @@ func (s *TestSuite) TestEndBlockerTallying() {
 	}{
 		"tally updated after voting period end": {
 			preRun: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalHelper(s, sdkCtx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr)
+				pID, err := submitProposal(s, sdkCtx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr)
 				s.Require().NoError(err)
 				return pID
 			},
 			admin:     proposers[0],
-			newCtx:    ctx.WithHeaderInfo(header.Info{Time: ctx.HeaderInfo().Time.Add(votingPeriod).Add(time.Hour)}),
+			newCtx:    ctx.WithBlockTime(ctx.BlockTime().Add(votingPeriod).Add(time.Hour)),
 			tallyRes:  group.DefaultTallyResult(),
 			expStatus: group.PROPOSAL_STATUS_REJECTED,
 		},
 		"tally within voting period": {
 			preRun: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalHelper(s, sdkCtx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr)
+				pID, err := submitProposal(s, sdkCtx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr)
 				s.Require().NoError(err)
 
 				return pID
@@ -394,7 +449,7 @@ func (s *TestSuite) TestEndBlockerTallying() {
 		},
 		"tally within voting period(with votes)": {
 			preRun: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalAndVoteHelper(s, ctx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
+				pID, err := submitProposalAndVote(s, ctx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
 				s.Require().NoError(err)
 
 				return pID
@@ -407,13 +462,13 @@ func (s *TestSuite) TestEndBlockerTallying() {
 		"tally after voting period (not passing)": {
 			preRun: func(sdkCtx sdk.Context) uint64 {
 				// `addrs[1]` has weight 1
-				pID, err := submitProposalAndVoteHelper(s, ctx, []sdk.Msg{msgSend}, []string{s.addrsStr[1]}, groupPolicyAddr, group.VOTE_OPTION_YES)
+				pID, err := submitProposalAndVote(s, ctx, []sdk.Msg{msgSend}, []string{addrs[1].String()}, groupPolicyAddr, group.VOTE_OPTION_YES)
 				s.Require().NoError(err)
 
 				return pID
 			},
 			admin:  proposers[0],
-			newCtx: ctx.WithHeaderInfo(header.Info{Time: ctx.HeaderInfo().Time.Add(votingPeriod).Add(time.Hour)}),
+			newCtx: ctx.WithBlockTime(ctx.BlockTime().Add(votingPeriod).Add(time.Hour)),
 			tallyRes: group.TallyResult{
 				YesCount:        "1",
 				NoCount:         "0",
@@ -424,13 +479,13 @@ func (s *TestSuite) TestEndBlockerTallying() {
 		},
 		"tally after voting period(with votes)": {
 			preRun: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalAndVoteHelper(s, ctx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
+				pID, err := submitProposalAndVote(s, ctx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
 				s.Require().NoError(err)
 
 				return pID
 			},
 			admin:  proposers[0],
-			newCtx: ctx.WithHeaderInfo(header.Info{Time: ctx.HeaderInfo().Time.Add(votingPeriod).Add(time.Hour)}),
+			newCtx: ctx.WithBlockTime(ctx.BlockTime().Add(votingPeriod).Add(time.Hour)),
 			tallyRes: group.TallyResult{
 				YesCount:        "2",
 				NoCount:         "0",
@@ -441,7 +496,7 @@ func (s *TestSuite) TestEndBlockerTallying() {
 		},
 		"tally of withdrawn proposal": {
 			preRun: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalHelper(s, sdkCtx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr)
+				pID, err := submitProposal(s, sdkCtx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr)
 				s.Require().NoError(err)
 
 				_, err = s.groupKeeper.WithdrawProposal(ctx, &group.MsgWithdrawProposal{
@@ -459,7 +514,7 @@ func (s *TestSuite) TestEndBlockerTallying() {
 		},
 		"tally of withdrawn proposal (with votes)": {
 			preRun: func(sdkCtx sdk.Context) uint64 {
-				pID, err := submitProposalAndVoteHelper(s, ctx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
+				pID, err := submitProposalAndVote(s, ctx, []sdk.Msg{msgSend}, proposers, groupPolicyAddr, group.VOTE_OPTION_YES)
 				s.Require().NoError(err)
 
 				_, err = s.groupKeeper.WithdrawProposal(ctx, &group.MsgWithdrawProposal{
@@ -481,8 +536,7 @@ func (s *TestSuite) TestEndBlockerTallying() {
 		s.Run(msg, func() {
 			pID := spec.preRun(ctx)
 
-			err := s.groupKeeper.EndBlocker(spec.newCtx)
-			s.Require().NoError(err)
+			s.Require().NoError(module.EndBlocker(spec.newCtx, s.groupKeeper))
 			resp, err := s.groupKeeper.Proposal(spec.newCtx, &group.QueryProposalRequest{
 				ProposalId: pID,
 			})
@@ -500,14 +554,12 @@ func (s *TestSuite) TestEndBlockerTallying() {
 	}
 }
 
-func submitProposalHelper(s *TestSuite, ctx context.Context, msgs []sdk.Msg, proposers []string, groupPolicyAddr sdk.AccAddress) (uint64, error) {
-	gpAddr, err := s.addressCodec.BytesToString(groupPolicyAddr)
-	s.Require().NoError(err)
+func submitProposal(s *IntegrationTestSuite, ctx context.Context, msgs []sdk.Msg, proposers []string, groupPolicyAddr sdk.AccAddress) (uint64, error) {
 	proposalReq := &group.MsgSubmitProposal{
-		GroupPolicyAddress: gpAddr,
+		GroupPolicyAddress: groupPolicyAddr.String(),
 		Proposers:          proposers,
 	}
-	err = proposalReq.SetMsgs(msgs)
+	err := proposalReq.SetMsgs(msgs)
 	if err != nil {
 		return 0, err
 	}
@@ -520,11 +572,15 @@ func submitProposalHelper(s *TestSuite, ctx context.Context, msgs []sdk.Msg, pro
 	return proposalRes.ProposalId, nil
 }
 
-func submitProposalAndVoteHelper(
-	s *TestSuite, ctx context.Context, msgs []sdk.Msg,
-	proposers []string, groupPolicyAddr sdk.AccAddress, voteOption group.VoteOption,
+func submitProposalAndVote(
+	s *IntegrationTestSuite,
+	ctx context.Context,
+	msgs []sdk.Msg,
+	proposers []string,
+	groupPolicyAddr sdk.AccAddress,
+	voteOption group.VoteOption,
 ) (uint64, error) {
-	myProposalID, err := submitProposalHelper(s, ctx, msgs, proposers, groupPolicyAddr)
+	myProposalID, err := submitProposal(s, ctx, msgs, proposers, groupPolicyAddr)
 	if err != nil {
 		return 0, err
 	}
@@ -536,6 +592,5 @@ func submitProposalAndVoteHelper(
 	if err != nil {
 		return 0, err
 	}
-
 	return myProposalID, nil
 }
