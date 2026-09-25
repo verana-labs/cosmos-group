@@ -15,10 +15,10 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	"github.com/cosmos/cosmos-sdk/x/group/errors"
-	"github.com/cosmos/cosmos-sdk/x/group/internal/math"
-	"github.com/cosmos/cosmos-sdk/x/group/internal/orm"
+	"github.com/verana-labs/cosmos-group"
+	"github.com/verana-labs/cosmos-group/errors"
+	"github.com/verana-labs/cosmos-group/internal/math"
+	"github.com/verana-labs/cosmos-group/internal/orm"
 )
 
 var _ group.MsgServer = Keeper{}
@@ -1073,7 +1073,7 @@ func (k Keeper) doUpdateGroup(ctx sdk.Context, groupID uint64, reqGroupAdmin str
 // is greater than a pre-defined maxMetadataLen.
 func (k Keeper) assertMetadataLength(metadata, description string) error {
 	if metadata != "" && uint64(len(metadata)) > k.config.MaxMetadataLen {
-		return errorsmod.Wrapf(errors.ErrMaxLimit, description)
+		return errorsmod.Wrap(errors.ErrMaxLimit, description)
 	}
 	return nil
 }

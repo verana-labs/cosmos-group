@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
@@ -16,11 +16,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	"github.com/cosmos/cosmos-sdk/x/group/internal/orm"
-	groupkeeper "github.com/cosmos/cosmos-sdk/x/group/keeper"
-	v2 "github.com/cosmos/cosmos-sdk/x/group/migrations/v2"
-	groupmodule "github.com/cosmos/cosmos-sdk/x/group/module"
+	"github.com/verana-labs/cosmos-group"
+	"github.com/verana-labs/cosmos-group/internal/orm"
+	groupkeeper "github.com/verana-labs/cosmos-group/keeper"
+	v2 "github.com/verana-labs/cosmos-group/migrations/v2"
+	groupmodule "github.com/verana-labs/cosmos-group/module"
 )
 
 var (

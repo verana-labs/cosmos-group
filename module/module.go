@@ -8,11 +8,11 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
-	modulev1 "cosmossdk.io/api/cosmos/group/module/v1"
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/depinject"
-	store "cosmossdk.io/store/types"
+	store "github.com/cosmos/cosmos-sdk/store/v2/types"
+	modulev1 "github.com/verana-labs/cosmos-group/api/cosmos/group/module/v1"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdkclient "github.com/cosmos/cosmos-sdk/client"
@@ -22,10 +22,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	"github.com/cosmos/cosmos-sdk/x/group/client/cli"
-	"github.com/cosmos/cosmos-sdk/x/group/keeper"
-	"github.com/cosmos/cosmos-sdk/x/group/simulation"
+	"github.com/verana-labs/cosmos-group"
+	"github.com/verana-labs/cosmos-group/client/cli"
+	"github.com/verana-labs/cosmos-group/keeper"
+	"github.com/verana-labs/cosmos-group/simulation"
 )
 
 // ConsensusVersion defines the current x/group module consensus version.

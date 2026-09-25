@@ -11,7 +11,7 @@ import (
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/depinject"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 
 	codecaddress "github.com/cosmos/cosmos-sdk/codec/address"
@@ -21,11 +21,11 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/cosmos/cosmos-sdk/x/bank/testutil"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	"github.com/cosmos/cosmos-sdk/x/group/keeper"
-	"github.com/cosmos/cosmos-sdk/x/group/module"
-	grouptestutil "github.com/cosmos/cosmos-sdk/x/group/testutil"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	"github.com/verana-labs/cosmos-group"
+	"github.com/verana-labs/cosmos-group/keeper"
+	"github.com/verana-labs/cosmos-group/module"
+	grouptestutil "github.com/verana-labs/cosmos-group/testutil"
 )
 
 type IntegrationTestSuite struct {

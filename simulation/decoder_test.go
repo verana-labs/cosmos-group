@@ -9,11 +9,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	"github.com/cosmos/cosmos-sdk/types/kv"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	"github.com/cosmos/cosmos-sdk/x/group/internal/orm"
-	"github.com/cosmos/cosmos-sdk/x/group/keeper"
-	"github.com/cosmos/cosmos-sdk/x/group/module"
-	"github.com/cosmos/cosmos-sdk/x/group/simulation"
+	"github.com/verana-labs/cosmos-group"
+	"github.com/verana-labs/cosmos-group/internal/orm"
+	"github.com/verana-labs/cosmos-group/keeper"
+	"github.com/verana-labs/cosmos-group/module"
+	"github.com/verana-labs/cosmos-group/simulation"
 )
 
 func TestDecodeStore(t *testing.T) {

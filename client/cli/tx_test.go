@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	// without this import amino json encoding will fail when resolving any types
-	_ "cosmossdk.io/api/cosmos/group/v1"
 	sdkmath "cosmossdk.io/math"
+	_ "github.com/verana-labs/cosmos-group/api/cosmos/group/v1"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -25,9 +25,9 @@ import (
 	clitestutil "github.com/cosmos/cosmos-sdk/testutil/cli"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	testutilmod "github.com/cosmos/cosmos-sdk/types/module/testutil"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	groupcli "github.com/cosmos/cosmos-sdk/x/group/client/cli"
-	groupmodule "github.com/cosmos/cosmos-sdk/x/group/module"
+	"github.com/verana-labs/cosmos-group"
+	groupcli "github.com/verana-labs/cosmos-group/client/cli"
+	groupmodule "github.com/verana-labs/cosmos-group/module"
 )
 
 var validMetadata = "metadata"

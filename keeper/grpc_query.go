@@ -11,9 +11,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	"github.com/cosmos/cosmos-sdk/x/group/errors"
-	"github.com/cosmos/cosmos-sdk/x/group/internal/orm"
+	"github.com/verana-labs/cosmos-group"
+	"github.com/verana-labs/cosmos-group/errors"
+	"github.com/verana-labs/cosmos-group/internal/orm"
 )
 
 var _ group.QueryServer = Keeper{}

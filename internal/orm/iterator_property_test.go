@@ -11,7 +11,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	"github.com/cosmos/cosmos-sdk/x/group/errors"
+	"github.com/verana-labs/cosmos-group/errors"
 )
 
 func TestPaginationProperty(t *testing.T) {

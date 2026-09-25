@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"cosmossdk.io/depinject"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -23,10 +23,10 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/cosmos/cosmos-sdk/x/bank/testutil"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	groupkeeper "github.com/cosmos/cosmos-sdk/x/group/keeper"
-	"github.com/cosmos/cosmos-sdk/x/group/simulation"
-	grouptestutil "github.com/cosmos/cosmos-sdk/x/group/testutil"
+	"github.com/verana-labs/cosmos-group"
+	groupkeeper "github.com/verana-labs/cosmos-group/keeper"
+	"github.com/verana-labs/cosmos-group/simulation"
+	grouptestutil "github.com/verana-labs/cosmos-group/testutil"
 )
 
 type SimTestSuite struct {

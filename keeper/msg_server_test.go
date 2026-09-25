@@ -17,10 +17,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	"github.com/cosmos/cosmos-sdk/x/group/internal/math"
-	"github.com/cosmos/cosmos-sdk/x/group/keeper"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
+	"github.com/verana-labs/cosmos-group"
+	"github.com/verana-labs/cosmos-group/internal/math"
+	"github.com/verana-labs/cosmos-group/keeper"
 )
 
 var EventProposalPruned = "cosmos.group.v1.EventProposalPruned"

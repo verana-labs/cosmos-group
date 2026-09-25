@@ -5,9 +5,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	"github.com/cosmos/cosmos-sdk/x/group/errors"
-	"github.com/cosmos/cosmos-sdk/x/group/internal/orm"
+	"github.com/verana-labs/cosmos-group"
+	"github.com/verana-labs/cosmos-group/errors"
+	"github.com/verana-labs/cosmos-group/internal/orm"
 )
 
 // Tally is a function that tallies a proposal by iterating through its votes,

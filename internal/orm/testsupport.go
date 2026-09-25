@@ -5,35 +5,36 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 
-	"cosmossdk.io/log"
-	"cosmossdk.io/store"
-	"cosmossdk.io/store/gaskv"
-	"cosmossdk.io/store/metrics"
-	storetypes "cosmossdk.io/store/types"
+	"cosmossdk.io/log/v2"
+	"github.com/cosmos/cosmos-sdk/store/v2"
+	"github.com/cosmos/cosmos-sdk/store/v2/gaskv"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 )
 
 type MockContext struct {
-	db    *dbm.MemDB
-	store storetypes.CommitMultiStore
+	db      *dbm.MemDB
+	store   storetypes.CommitMultiStore
+	mounted map[storetypes.StoreKey]struct{}
 }
 
 func NewMockContext() *MockContext {
 	db := dbm.NewMemDB()
 	return &MockContext{
-		db:    dbm.NewMemDB(),
-		store: store.NewCommitMultiStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics()),
+		db:      dbm.NewMemDB(),
+		store:   store.NewCommitMultiStore(db, log.NewNopLogger()),
+		mounted: map[storetypes.StoreKey]struct{}{},
 	}
 }
 
 func (m MockContext) KVStore(key storetypes.StoreKey) storetypes.KVStore {
-	if s := m.store.GetCommitKVStore(key); s != nil {
-		return s
+	if _, ok := m.mounted[key]; !ok {
+		m.store.MountStoreWithDB(key, storetypes.StoreTypeIAVL, m.db)
+		if err := m.store.LoadLatestVersion(); err != nil {
+			panic(err)
+		}
+		m.mounted[key] = struct{}{}
 	}
-	m.store.MountStoreWithDB(key, storetypes.StoreTypeIAVL, m.db)
-	if err := m.store.LoadLatestVersion(); err != nil {
-		panic(err)
-	}
-	return m.store.GetCommitKVStore(key)
+	return m.store.GetKVStore(key)
 }
 
 type debuggingGasMeter struct {

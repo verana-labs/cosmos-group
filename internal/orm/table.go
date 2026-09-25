@@ -7,12 +7,12 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/store/prefix"
-	"cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
+	"github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/cosmos-sdk/x/group/errors"
+	"github.com/verana-labs/cosmos-group/errors"
 )
 
 var (
@@ -44,7 +44,7 @@ func newTable(prefix [2]byte, model proto.Message, cdc codec.Codec) (*table, err
 		return nil, errors.ErrORMInvalidArgument.Wrap("Model must not be nil")
 	}
 	tp := reflect.TypeOf(model)
-	if tp.Kind() == reflect.Ptr {
+	if tp.Kind() == reflect.Pointer {
 		tp = tp.Elem()
 	}
 	return &table{

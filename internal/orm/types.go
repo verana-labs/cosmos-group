@@ -10,13 +10,13 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/store/prefix"
-	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/store/v2/prefix"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	"github.com/cosmos/cosmos-sdk/x/group/errors"
+	"github.com/verana-labs/cosmos-group/errors"
 )
 
 // Unique identifier of a persistent table.
@@ -128,7 +128,7 @@ func NewTypeSafeRowGetter(prefixKey [2]byte, model reflect.Type, cdc codec.Codec
 
 func assertCorrectType(model reflect.Type, obj proto.Message) error {
 	tp := reflect.TypeOf(obj)
-	if tp.Kind() != reflect.Ptr {
+	if tp.Kind() != reflect.Pointer {
 		return errorsmod.Wrap(sdkerrors.ErrInvalidType, "model destination must be a pointer")
 	}
 	if model != tp.Elem() {

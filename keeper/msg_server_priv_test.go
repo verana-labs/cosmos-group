@@ -13,14 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	coreaddress "cosmossdk.io/core/address"
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	"github.com/cosmos/cosmos-sdk/x/group/internal/math"
+	"github.com/verana-labs/cosmos-group"
+	"github.com/verana-labs/cosmos-group/internal/math"
 )
 
 func TestDoTallyAndUpdate(t *testing.T) {

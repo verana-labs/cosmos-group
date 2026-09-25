@@ -13,9 +13,9 @@ import (
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 	"github.com/cosmos/cosmos-sdk/x/bank"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	groupmodule "github.com/cosmos/cosmos-sdk/x/group/module"
-	"github.com/cosmos/cosmos-sdk/x/group/simulation"
+	"github.com/verana-labs/cosmos-group"
+	groupmodule "github.com/verana-labs/cosmos-group/module"
+	"github.com/verana-labs/cosmos-group/simulation"
 )
 
 func TestRandomizedGenState(t *testing.T) {
