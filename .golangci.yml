@@ -1,0 +1,85 @@
+version: "2"
+run:
+  build-tags:
+    - ledger
+    - test_ledger_mock
+  tests: true
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - dogsled
+    - errcheck
+    - errorlint
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - nolintlint
+    - revive
+    - staticcheck
+    - thelper
+    - unconvert
+    - unused
+  settings:
+    dogsled:
+      max-blank-identifiers: 6
+    gocritic:
+      disabled-checks:
+        - regexpMust
+        - appendAssign
+        - ifElseChain
+    gosec:
+      excludes:
+        - G101
+        - G107
+        - G404
+      confidence: medium
+    misspell:
+      locale: US
+    nolintlint:
+      require-explanation: true
+      require-specific: false
+      allow-unused: false
+    revive:
+      rules:
+        - name: redefines-builtin-id
+          disabled: true
+    staticcheck:
+      checks:
+        - all
+    unused:
+      local-variables-are-used: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - staticcheck
+        text: 'ST1003:'
+      - linters:
+          - staticcheck
+        text: 'ST1016:'
+      - linters:
+          - staticcheck
+        path: migrations
+        text: 'SA1019:'
+      - linters:
+          - gosec
+        text: 'G115: integer overflow conversion'
+      - linters:
+          - nolintlint
+        text: leading space
+    paths:
+      - .*\.pb\.go$
+      - .*\.pb\.gw\.go$
+      - .*\.pulsar\.go$
+issues:
+  max-issues-per-linter: 10000
+  max-same-issues: 10000

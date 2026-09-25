@@ -1,0 +1,8 @@
+verana-labs/cosmos-group
+Copyright 2026 Verana Labs and contributors
+
+This product includes software developed as part of the Cosmos SDK
+(https://github.com/cosmos/cosmos-sdk): the x/group module and its
+protobuf definitions as of tag v0.53.8, licensed under the Apache
+License, Version 2.0. Git history of those files is preserved in this
+repository. Changes made after the import are listed in CHANGELOG.md.

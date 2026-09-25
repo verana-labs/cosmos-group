@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.8
+      - name: Guard against upstream and enterprise paths
+        run: |
+          ! grep -RIn 'cosmos-sdk/x/group\|enterprise/group' --include='*.go' --include='*.proto' .
+      - run: go build ./...
+      - run: go vet $(go list ./... | grep -v /api/)
+      - run: go test -race ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.8
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
+  vulncheck:
+    # advisory: transitive findings without an upstream fix (e.g. GO-2026-5932 in x/crypto) must not block merges
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.8
+      - uses: golang/govulncheck-action@v1
